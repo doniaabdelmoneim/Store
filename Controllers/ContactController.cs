@@ -28,10 +28,37 @@ namespace Store.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetContacts()
+        public IActionResult GetContacts(int? page)
         {
-            var contacts = context.Contacts.Include(c => c.Subject).ToList();
-            return Ok(contacts);
+            //add pagination 
+            if (page == null || page < 1)
+            {
+                page = 1;
+            }
+            int pageSize = 10;
+            int totalPages = 0;
+            decimal totalContacts = context.Contacts.Count();
+            if (totalContacts > 0)
+            {
+                totalPages = (int) Math.Ceiling(totalContacts / pageSize);
+            }
+
+            var contacts = context.Contacts.Include(c => c.Subject)
+                .OrderByDescending(c=>c.Id)
+                .Skip((int)(page!-1)*pageSize)
+                .Take(pageSize) 
+                .ToList();
+
+            var response = new
+            {
+                Contacts = contacts,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = totalPages,
+                TotalContacts = totalContacts
+            };
+
+            return Ok(response);
         }
         [HttpGet("{id}")]
         public IActionResult GetContact(int id)
