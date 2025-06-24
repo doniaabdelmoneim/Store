@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Store.DTOs;
 using Store.Models;
 using Store.Services;
@@ -11,16 +12,7 @@ namespace Store.Controllers
     {
         private readonly ApplicationDbContext context;
 
-        // subject options for dropdown list 
-        private readonly List<string> ListSubjects = new List<string>()
-        {
-            "Order Status",
-            "Refund Request",
-            "Feedback",
-            "Technical Support",
-            "Sales Inquiry",
-            "Other"
-        };
+
 
         public ContactController(ApplicationDbContext context)
         {
@@ -31,19 +23,20 @@ namespace Store.Controllers
         [HttpGet("subjects")]
         public IActionResult GetSubjects()
         {
+            var ListSubjects = context.Subjects.ToList();
             return Ok(ListSubjects);
         }
 
         [HttpGet]
         public IActionResult GetContacts()
         {
-            var contacts = context.Contacts.ToList();
+            var contacts = context.Contacts.Include(c => c.Subject).ToList();
             return Ok(contacts);
         }
         [HttpGet("{id}")]
         public IActionResult GetContact(int id)
         {
-            var contact = context.Contacts.Find(id);
+            var contact = context.Contacts.Include(c=>c.Subject).FirstOrDefault(c =>c.Id== id);
             if (contact == null)
             {
                 return NotFound();
@@ -53,8 +46,9 @@ namespace Store.Controllers
         [HttpPost]
         public IActionResult CreateContact (ContactDto contactDto)
         {
-            if (!ListSubjects.Contains(contactDto.Subject))
-            {
+            var subject = context.Subjects.Find(contactDto.SubjectId);
+            if (subject==null)
+            { 
                 ModelState.AddModelError("Subject", "Invalid subject selected.");
                 return BadRequest(ModelState);
             }
@@ -65,7 +59,7 @@ namespace Store.Controllers
                 LastName = contactDto.LastName,
                 Email = contactDto.Email,
                 PhoneNumber = contactDto.PhoneNumber ?? "",
-                Subject = contactDto.Subject,
+                Subject = subject,
                 Message = contactDto.Message,
                 CreatedAt = DateTime.Now
             };
@@ -77,7 +71,9 @@ namespace Store.Controllers
         [HttpPut("{id}")]
         public IActionResult UpdateContact(int id, ContactDto contactDto)
         {
-            if (!ListSubjects.Contains(contactDto.Subject))
+            var subject = context.Subjects.Find(contactDto.SubjectId);
+
+            if (subject==null)
             {
                 ModelState.AddModelError("Subject", "Invalid subject selected.");
                 return BadRequest(ModelState);
@@ -91,7 +87,7 @@ namespace Store.Controllers
             contact.LastName = contactDto.LastName;
             contact.Email = contactDto.Email;
             contact.PhoneNumber = contactDto.PhoneNumber ?? "";
-            contact.Subject = contactDto.Subject;
+            contact.Subject = subject;
             contact.Message = contactDto.Message;
             context.SaveChanges();
             return Ok(contact);
@@ -102,7 +98,7 @@ namespace Store.Controllers
         {
             try
             {
-                var contact = new Contact() { Id = id };
+                var contact = new Contact() { Id = id , Subject = new Subject() };
                 context.Contacts.Remove(contact);
                 context.SaveChanges();
 
